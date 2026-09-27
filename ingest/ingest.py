@@ -3,6 +3,7 @@ import os
 
 import requests
 from dotenv import load_dotenv
+
 from supabase import create_client
 
 load_dotenv("../web/.env.local")
@@ -61,12 +62,53 @@ def to_number(x):
         return 0.0
 
 
-def match_vertical():
-    return
+def match_vertical(a, verticles):
+    for v in verticles:
+        c = v["config"]
+        if not all(
+            a.get(field) in allowed for field, allowed in c.get("match", {}).items()
+        ):
+            continue
+        if to_number(a.get(FIELD_MAP["valuation"]) < c.get("min_value", 0)):
+            continue
+        return v["id"]
+    return None
 
 
 def main():
-    return
+    verticals = sb.table("verticles").select("").eq("active", True).execute().data
+    verticals.sort(ket=lambda v: v["config"].get("priority", 99))
+    rows = []
+
+    for f in fetch_since():
+        a, g = f["attributes"], f.get("geometry") or {}
+        vid = match_vertical(a, verticals)
+        if not vid:
+            continue
+
+        ts = a.get(DATE_FIELD)
+        row = {col: a.get(src) for col, src in FIELD_MAP.items()}
+        row["valuation"] = to_number(row["valuation"])
+        row.update(
+            {
+                "vertical_id": vid,
+                "issued_date": dt.datetime.fromtimestamp(ts / 1000, dt.UTC)
+                .date()
+                .isoformat()
+                if ts
+                else None,
+                "lat": g.get("y"),
+                "lng": g.get("x"),
+                "raw": a,
+            }
+        )
+        rows.append(row)
+    for i in range(0, len(rows), 500):
+        sb.table("permits").upsert(rows[i: i + 500], on_conflict= "permit_number").execute()
+    sb.rpc("fill owners name").execute()
+    print(f"upserted {len(rows)} leads")
+
+
 
 
 if __name__ == "__main__":
