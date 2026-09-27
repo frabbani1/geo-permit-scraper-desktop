@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Columbus Permit Leads
 
 A lead-generation web app for Columbus, Ohio contractors. Pulls building permit data from the city's open data portal, matches each permit to a trade vertical (HVAC, roofing, residential remodel, commercial alteration), and lets subscribed contractors claim leads and see contact info.
@@ -101,3 +102,7 @@ Scheduled nightly via `.github/workflows/ingest.yml` — needs 3 GitHub repo sec
 - Node must be v26+ (not the shadowed v20 that Homebrew can leave active — check with `which node`).
 - Two separate `.env.local` files exist (`web/` and `ingest/`) because each program only reads its own folder's file by default. They duplicate the Supabase URL/service key intentionally — update both if a key is ever rotated.
 - Not a lawyer: Do-Not-Call compliance and a Terms of Service/Privacy Policy still need review before charging real customers.
+=======
+# geo-permit-scraper-desktop
+Lead's for buisinesses to operate
+>>>>>>> 34f89b463d831d3e2d65dfd5130150c1c036bd05
