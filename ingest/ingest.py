@@ -3,7 +3,6 @@ import os
 
 import requests
 from dotenv import load_dotenv
-
 from supabase import create_client
 
 load_dotenv("../web/.env.local")
@@ -29,7 +28,9 @@ FIELD_MAP = {
 
 
 def fetch_since(days=3):
-    since = (dt.date.today() - dt.timedelta(days=days)).isoformat()
+    since = (
+        dt.datetime.now(dt.timezone.utc).date() - dt.timedelta(days=days)
+    ).isoformat()
     offset, out = 0, []
     while True:
         results = requests.get(
@@ -42,7 +43,7 @@ def fetch_since(days=3):
                 "resultOffset": offset,
                 "resultRecordCount": 1000,
             },
-            timout=60,
+            timeout=60,
         )
         results.raise_for_status()
         features = results.json().get("features", [])
@@ -68,5 +69,5 @@ def main():
     return
 
 
-if __name__ == "main":
+if __name__ == "__main__":
     main()
