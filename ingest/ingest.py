@@ -17,7 +17,7 @@ DATE_FIELD = "ISSUED_DT"
 FIELD_MAP = {
     "permit_number": "B1_ALT_ID",
     "permit_type": "B1_PER_TYPE",
-    "permit_subtype": "B1_PER_SUBTYPE",
+    "permit_subtype": "B1_PER_SUB_TYPE",
     "description": "VALUE_DESC",
     "valuation": "G3_VALUE_TTL",
     "status": "PERMIT_STATUS",
@@ -50,7 +50,7 @@ def fetch_since(days=3):
         features = results.json().get("features", [])
         out += features
 
-        if len(features) <= 1000:
+        if len(features) < 1000:
             return out
         offset += 1000
 
@@ -69,19 +69,21 @@ def match_vertical(a, verticles):
             a.get(field) in allowed for field, allowed in c.get("match", {}).items()
         ):
             continue
-        if to_number(a.get(FIELD_MAP["valuation"]) < c.get("min_value", 0)):
+        if to_number(a.get(FIELD_MAP["valuation"])) < c.get("min_value", 0):
             continue
         return v["id"]
     return None
 
 
 def main():
-    verticals = sb.table("verticles").select("").eq("active", True).execute().data
-    verticals.sort(ket=lambda v: v["config"].get("priority", 99))
+    verticals = sb.table("verticals").select("*").eq("active", True).execute().data
+    print(verticals)
+    verticals.sort(key=lambda v: v["config"].get("priority", 99))
     rows = []
 
-    for f in fetch_since():
+    for f in fetch_since(days = 3):
         a, g = f["attributes"], f.get("geometry") or {}
+        print(a.get("B1_PER_TYPE"), "|", a.get("B1_PER_SUB_TYPE"))
         vid = match_vertical(a, verticals)
         if not vid:
             continue
@@ -105,7 +107,7 @@ def main():
         rows.append(row)
     for i in range(0, len(rows), 500):
         sb.table("permits").upsert(rows[i: i + 500], on_conflict= "permit_number").execute()
-    sb.rpc("fill owners name").execute()
+    sb.rpc("fill_owner_names").execute()
     print(f"upserted {len(rows)} leads")
 
 
