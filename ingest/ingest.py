@@ -81,7 +81,7 @@ def main():
     verticals.sort(key=lambda v: v["config"].get("priority", 99))
     rows = []
 
-    for f in fetch_since(days = 3):
+    for f in fetch_since(days=3):
         a, g = f["attributes"], f.get("geometry") or {}
         print(a.get("B1_PER_TYPE"), "|", a.get("B1_PER_SUB_TYPE"))
         vid = match_vertical(a, verticals)
@@ -106,11 +106,11 @@ def main():
         )
         rows.append(row)
     for i in range(0, len(rows), 500):
-        sb.table("permits").upsert(rows[i: i + 500], on_conflict= "permit_number").execute()
+        sb.table("permits").upsert(
+            rows[i : i + 500], on_conflict="permit_number"
+        ).execute()
     sb.rpc("fill_owner_names").execute()
     print(f"upserted {len(rows)} leads")
-
-
 
 
 if __name__ == "__main__":
