@@ -26,7 +26,12 @@ export default function LeadsView({ leads }: { leads: Lead[] }) {
 
   return (
     <main className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Commercial leads</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Commercial leads</h1>
+        <a href="/pricing" className="rounded-md bg-white px-3 py-1 text-black">
+          Subscribe
+        </a>
+      </div>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left border-b">
