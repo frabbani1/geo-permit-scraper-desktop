@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import ManageBillingButton from "./ManageBillingButton";
 
 type Lead = {
   permit_number: string;
@@ -28,9 +29,12 @@ export default function LeadsView({ leads }: { leads: Lead[] }) {
     <main className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Commercial leads</h1>
-        <a href="/pricing" className="rounded-md bg-white px-3 py-1 text-black">
-          Subscribe
-        </a>
+        <div className="flex gap-2">
+          <a href="/pricing" className="rounded-md bg-white px-3 py-1 text-black">
+            Subscribe
+          </a>
+          <ManageBillingButton />
+        </div>
       </div>
       <table className="w-full text-sm">
         <thead>
