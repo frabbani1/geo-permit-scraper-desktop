@@ -27,10 +27,10 @@ export default async function LeadsPage() {
   const planCfg = vert?.config?.plans?.[plan];
   const delayHours = Number(planCfg?.delay_hours ?? 0);
   const filters: string[] = planCfg?.filters ?? ["zip"];
+  const phoneLimit = Number(planCfg?.monthly_claim_limit ?? vert?.config?.monthly_claim_limit ?? 50);
   const maxClaims = Number(vert?.config?.max_claims_per_lead ?? 1);
   const cutoff = new Date(Date.now() - delayHours * 3600 * 1000).toISOString();
 
-  // Leads this user already claimed
   const { data: mineRows } = await admin
     .from("lead_claims")
     .select("permit_number")
@@ -38,7 +38,16 @@ export default async function LeadsPage() {
   const claimedIds = (mineRows ?? []).map((c) => c.permit_number as string);
   const claimedSet = new Set(claimedIds);
 
-  // Available leads: NO address is selected here on purpose
+  const { data: viewRows } = await admin
+    .from("lead_phone_views")
+    .select("permit_number, viewed_at")
+    .eq("user_id", user.id);
+  const viewedSet = new Set((viewRows ?? []).map((r) => r.permit_number as string));
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const phoneUsed = (viewRows ?? []).filter((r) => new Date(r.viewed_at) >= monthStart).length;
+
   const { data: pool } = await admin
     .from("permits")
     .select("permit_number, zip, description, valuation, issued_date, claim_count")
@@ -58,7 +67,6 @@ export default async function LeadsPage() {
       issued_date: p.issued_date,
     }));
 
-  // My leads: full details, only for claims this user owns
   let mine: any[] = [];
   if (claimedIds.length > 0) {
     const { data } = await admin
@@ -66,10 +74,36 @@ export default async function LeadsPage() {
       .select("permit_number, address, zip, description, valuation, issued_date, contractor_name")
       .in("permit_number", claimedIds)
       .order("issued_date", { ascending: false });
-    mine = data ?? [];
+
+    const viewedIds = claimedIds.filter((x) => viewedSet.has(x));
+    const { data: cons } = viewedIds.length
+      ? await admin
+          .from("lead_contacts")
+          .select("permit_number, phones, website")
+          .in("permit_number", viewedIds)
+      : { data: [] as any[] };
+    const byId = new Map((cons ?? []).map((c: any) => [c.permit_number, c]));
+
+    mine = (data ?? []).map((m) => {
+      const revealed = viewedSet.has(m.permit_number);
+      const c: any = byId.get(m.permit_number);
+      return {
+        ...m,
+        revealed,
+        phone: revealed ? c?.phones?.[0] ?? null : null,
+        website: revealed ? c?.website ?? null : null,
+      };
+    });
   }
 
   return (
-    <LeadsView available={available} mine={mine} plan={plan} filters={filters} />
+    <LeadsView
+      available={available}
+      mine={mine}
+      plan={plan}
+      filters={filters}
+      phoneUsed={phoneUsed}
+      phoneLimit={phoneLimit}
+    />
   );
 }

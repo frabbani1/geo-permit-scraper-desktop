@@ -11,6 +11,9 @@ type Lead = {
   valuation: number | null;
   issued_date: string | null;
   contractor_name?: string | null;
+  revealed?: boolean;
+  phone?: string | null;
+  website?: string | null;
 };
 
 export default function LeadsView({
@@ -18,15 +21,20 @@ export default function LeadsView({
   mine,
   plan,
   filters,
+  phoneUsed,
+  phoneLimit,
 }: {
   available: Lead[];
   mine: Lead[];
   plan: string;
   filters: string[];
+  phoneUsed: number;
+  phoneLimit: number;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"available" | "mine">("available");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [phoneErrors, setPhoneErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [zip, setZip] = useState("");
   const [minValue, setMinValue] = useState("");
@@ -85,6 +93,24 @@ export default function LeadsView({
     }
   }
 
+  async function viewPhone(id: string) {
+    setBusy(id);
+    const res = await fetch(`/api/leads/${encodeURIComponent(id)}/phone`, {
+      method: "POST",
+    });
+    const data = await res.json();
+    setBusy(null);
+    if (res.ok) {
+      setPhoneErrors((e) => {
+        const { [id]: _removed, ...rest } = e;
+        return rest;
+      });
+      router.refresh();
+    } else {
+      setPhoneErrors((e) => ({ ...e, [id]: data.error ?? "Error" }));
+    }
+  }
+
   const tabClass = (t: string) =>
     `px-3 py-1 text-sm border ${tab === t ? "bg-white text-black" : ""}`;
 
@@ -102,13 +128,16 @@ export default function LeadsView({
         </div>
       </div>
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4">
         <button className={tabClass("available")} onClick={() => setTab("available")}>
           Available ({available.length})
         </button>
         <button className={tabClass("mine")} onClick={() => setTab("mine")}>
           My leads ({mine.length})
         </button>
+        <span className="text-sm opacity-60 ml-2">
+          Phone views this month: {phoneUsed}/{phoneLimit}
+        </span>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4 items-center">
@@ -168,7 +197,49 @@ export default function LeadsView({
               </td>
               <td className="p-2">
                 {tab === "mine" ? (
-                  l.contractor_name ?? "n/a"
+                  <div className="space-y-1">
+                    <div>{l.contractor_name ?? "n/a"}</div>
+                    {l.revealed ? (
+                      <>
+                        {l.phone ? (
+                          <div>{l.phone}</div>
+                        ) : (
+                          <div className="text-xs opacity-70">No phone found</div>
+                        )}
+                        {l.website && (
+                          <a
+                            className="text-xs underline block"
+                            target="_blank"
+                            rel="noreferrer"
+                            href={l.website}
+                          >
+                            Website
+                          </a>
+                        )}
+                        {!l.phone && l.contractor_name && (
+                          <a
+                            className="text-xs underline opacity-70 block"
+                            target="_blank"
+                            rel="noreferrer"
+                            href={`https://www.google.com/search?q=${encodeURIComponent(l.contractor_name + " Columbus OH phone email")}`}
+                          >
+                            Find phone/email
+                          </a>
+                        )}
+                      </>
+                    ) : (
+                      <button
+                        className="border px-2 py-1 text-xs"
+                        disabled={busy === l.permit_number}
+                        onClick={() => viewPhone(l.permit_number)}
+                      >
+                        {busy === l.permit_number ? "Looking up..." : "View phone number"}
+                      </button>
+                    )}
+                    {phoneErrors[l.permit_number] && (
+                      <div className="text-xs text-red-400">{phoneErrors[l.permit_number]}</div>
+                    )}
+                  </div>
                 ) : errors[l.permit_number] ? (
                   <span className="text-red-400">{errors[l.permit_number]}</span>
                 ) : (
