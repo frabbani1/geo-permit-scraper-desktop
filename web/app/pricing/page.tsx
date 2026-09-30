@@ -39,6 +39,10 @@ export default function Pricing() {
           </div>
         ))}
       </div>
+      <p className="mt-6 text-xs opacity-70 text-center">
+        By subscribing you agree to the <a className="underline" href="/terms">Terms</a> and{" "}
+        <a className="underline" href="/privacy">Privacy Policy</a>.
+      </p>
     </main>
   );
 }
