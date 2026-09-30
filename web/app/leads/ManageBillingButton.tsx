@@ -12,14 +12,18 @@ export default function ManageBillingButton() {
 
   async function openPortal() {
     setLoading(true);
-    const res = await fetch("/api/portal", { method: "POST" });
-    const data = await res.json();
-    if (data.url) {
-      window.location.href = data.url;
-    } else {
+    try {
+      const res = await fetch("/api/portal", { method: "POST" });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
       alert(data.error || "Could not open billing portal");
-      setLoading(false);
+    } catch {
+      alert("Could not reach the server. Try again.");
     }
+    setLoading(false);
   }
 
   return (
