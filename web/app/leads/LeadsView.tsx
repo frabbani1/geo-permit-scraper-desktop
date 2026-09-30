@@ -1,33 +1,41 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import ManageBillingButton from "./ManageBillingButton";
 
 type Lead = {
   permit_number: string;
-  address: string | null;
+  address?: string | null;
   zip: string | null;
   description: string | null;
   valuation: number | null;
   issued_date: string | null;
+  contractor_name?: string | null;
 };
 
 export default function LeadsView({
-  leads,
+  available,
+  mine,
   plan,
   filters,
 }: {
-  leads: Lead[];
+  available: Lead[];
+  mine: Lead[];
   plan: string;
   filters: string[];
 }) {
-  const [results, setResults] = useState<Record<string, string>>({});
+  const router = useRouter();
+  const [tab, setTab] = useState<"available" | "mine">("available");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState<string | null>(null);
   const [zip, setZip] = useState("");
   const [minValue, setMinValue] = useState("");
   const [keyword, setKeyword] = useState("");
 
   const has = (f: string) => filters.includes(f);
+  const rows = tab === "available" ? available : mine;
 
-  const shown = leads.filter((l) => {
+  const shown = rows.filter((l) => {
     if (has("zip") && zip && !(l.zip ?? "").startsWith(zip.trim())) return false;
     if (has("min_value") && minValue && (l.valuation ?? 0) < Number(minValue)) return false;
     if (
@@ -40,37 +48,45 @@ export default function LeadsView({
   });
 
   function exportCsv() {
-    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const rows = [
-      ["permit_number", "issued_date", "address", "zip", "description", "valuation"],
-      ...shown.map((l) => [
-        l.permit_number,
-        l.issued_date,
-        l.address,
-        l.zip,
-        l.description,
-        l.valuation,
-      ]),
-    ];
-    const csv = rows.map((r) => r.map(esc).join(",")).join("\n");
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, "\"\"")}"`;
+    const withAddress = tab === "mine";
+    const header = ["permit_number", "issued_date", "zip", "description", "valuation"];
+    if (withAddress) header.push("address", "contact");
+    const body = shown.map((l) => {
+      const r: unknown[] = [l.permit_number, l.issued_date, l.zip, l.description, l.valuation];
+      if (withAddress) r.push(l.address, l.contractor_name);
+      return r;
+    });
+    const csv = [header, ...body].map((r) => r.map(esc).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = "leads.csv";
+    a.download = tab === "mine" ? "my-leads.csv" : "leads.csv";
     a.click();
     URL.revokeObjectURL(url);
   }
 
   async function claim(id: string) {
+    setBusy(id);
     const res = await fetch(`/api/leads/${encodeURIComponent(id)}/contact`, {
       method: "POST",
     });
     const data = await res.json();
-    const text = res.ok
-      ? `Contact: ${data.contact?.name ?? "n/a"}`
-      : `Error: ${data.error}`;
-    setResults((r) => ({ ...r, [id]: text }));
+    setBusy(null);
+    if (res.ok) {
+      setErrors((e) => {
+        const { [id]: _removed, ...rest } = e;
+        return rest;
+      });
+      setTab("mine");
+      router.refresh();
+    } else {
+      setErrors((e) => ({ ...e, [id]: data.error ?? "Error" }));
+    }
   }
+
+  const tabClass = (t: string) =>
+    `px-3 py-1 text-sm border ${tab === t ? "bg-white text-black" : ""}`;
 
   return (
     <main className="p-6">
@@ -84,6 +100,15 @@ export default function LeadsView({
           </a>
           <ManageBillingButton />
         </div>
+      </div>
+
+      <div className="flex gap-2 mb-4">
+        <button className={tabClass("available")} onClick={() => setTab("available")}>
+          Available ({available.length})
+        </button>
+        <button className={tabClass("mine")} onClick={() => setTab("mine")}>
+          My leads ({mine.length})
+        </button>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4 items-center">
@@ -124,10 +149,10 @@ export default function LeadsView({
         <thead>
           <tr className="text-left border-b">
             <th className="p-2">Issued</th>
-            <th className="p-2">Address</th>
+            <th className="p-2">{tab === "mine" ? "Address" : "Zip"}</th>
             <th className="p-2">Description</th>
             <th className="p-2">Value</th>
-            <th className="p-2"></th>
+            <th className="p-2">{tab === "mine" ? "Contact" : ""}</th>
           </tr>
         </thead>
         <tbody>
@@ -135,19 +160,24 @@ export default function LeadsView({
             <tr key={l.permit_number} className="border-b align-top">
               <td className="p-2">{l.issued_date}</td>
               <td className="p-2">
-                {l.address} {l.zip}
+                {tab === "mine" ? `${l.address ?? ""} ${l.zip ?? ""}` : l.zip}
               </td>
               <td className="p-2">{l.description}</td>
               <td className="p-2">
                 ${Math.round(l.valuation ?? 0).toLocaleString()}
               </td>
               <td className="p-2">
-                {results[l.permit_number] ?? (
+                {tab === "mine" ? (
+                  l.contractor_name ?? "n/a"
+                ) : errors[l.permit_number] ? (
+                  <span className="text-red-400">{errors[l.permit_number]}</span>
+                ) : (
                   <button
                     className="border px-3 py-1"
+                    disabled={busy === l.permit_number}
                     onClick={() => claim(l.permit_number)}
                   >
-                    Claim
+                    {busy === l.permit_number ? "Claiming..." : "Claim"}
                   </button>
                 )}
               </td>
