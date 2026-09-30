@@ -24,7 +24,9 @@ export default async function LeadsPage() {
     .select("config")
     .eq("id", "commercial")
     .single();
-  const delayHours = Number(vert?.config?.plans?.[plan]?.delay_hours ?? 0);
+  const planCfg = vert?.config?.plans?.[plan];
+  const delayHours = Number(planCfg?.delay_hours ?? 0);
+  const filters: string[] = planCfg?.filters ?? ["zip"];
   const cutoff = new Date(Date.now() - delayHours * 3600 * 1000).toISOString();
 
   const { data: leads } = await admin
@@ -33,7 +35,7 @@ export default async function LeadsPage() {
     .eq("vertical_id", "commercial")
     .lte("ingested_at", cutoff)
     .order("issued_date", { ascending: false })
-    .limit(50);
+    .limit(200);
 
-  return <LeadsView leads={leads ?? []} />;
+  return <LeadsView leads={leads ?? []} plan={plan} filters={filters} />;
 }
