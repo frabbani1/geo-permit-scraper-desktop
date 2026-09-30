@@ -29,13 +29,15 @@ export async function POST(req: NextRequest) {
       const s = event.data.object as Stripe.Checkout.Session;
       const userId = s.client_reference_id ?? s.metadata?.user_id;
       const vertical = s.metadata?.vertical_id;
-      console.log("SESSION:", { userId, vertical, sub: s.subscription });
+      const plan = s.metadata?.plan ?? "basic";
+      console.log("SESSION:", { userId, vertical, plan });
       if (!userId || !vertical) throw new Error("Missing user_id or vertical in session");
 
       const { error } = await supabase.from("subscriptions").upsert(
         {
           user_id: userId,
           vertical_id: vertical,
+          plan,
           stripe_customer_id: s.customer as string,
           stripe_subscription_id: s.subscription as string,
           status: "active",
@@ -50,9 +52,21 @@ export async function POST(req: NextRequest) {
       event.type === "customer.subscription.deleted"
     ) {
       const sub = event.data.object as Stripe.Subscription;
+      const update: Record<string, string> = { status: sub.status };
+
+      if (event.type === "customer.subscription.updated") {
+        const priceId = sub.items.data[0]?.price.id;
+        const { data: verts } = await supabase.from("verticals").select("config");
+        for (const vt of verts ?? []) {
+          const plans = (vt.config as any)?.plans ?? {};
+          const found = Object.keys(plans).find((k) => plans[k].stripe_price_id === priceId);
+          if (found) update.plan = found;
+        }
+      }
+
       const { error } = await supabase
         .from("subscriptions")
-        .update({ status: sub.status })
+        .update(update)
         .eq("stripe_subscription_id", sub.id);
       if (error) throw error;
     }

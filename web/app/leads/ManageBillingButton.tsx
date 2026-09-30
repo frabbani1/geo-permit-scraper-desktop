@@ -28,7 +28,7 @@ export default function ManageBillingButton() {
       disabled={loading}
       className="rounded border px-3 py-1 text-sm"
     >
-      {loading ? "Opening..." : "Manage billing"}
+      {loading ? "Opening..." : "Manage subscription"}
     </button>
   );
 }
